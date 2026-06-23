@@ -64,19 +64,29 @@ describe("snake game logic", () => {
   });
 
   it("dies when running into itself", () => {
-    // grow the snake to length 4 by eating one food, then U-turn into itself.
-    let s = createInitialState("wrap");
-    const head = s.snake[0];
-    s = withFood(s, head.x + 1, head.y); // food directly ahead
-    s = step(s); // eat → length 4
-    s = withFood(s, 0, 0); // move food out of the way
-    s = step(s); // continue right
-    s = changeDirection(s, "up");
-    s = step(s);
-    s = changeDirection(s, "left");
-    s = step(s);
-    s = changeDirection(s, "down");
-    s = step(s);
-    expect(s.alive).toBe(false);
+    // Construct a long-enough snake by hand and U-turn into its own body.
+    const s: GameState = {
+      snake: [
+        { x: 5, y: 5 },
+        { x: 4, y: 5 },
+        { x: 4, y: 6 },
+        { x: 5, y: 6 },
+        { x: 6, y: 6 },
+        { x: 6, y: 5 },
+      ],
+      direction: "up",
+      food: { x: 0, y: 0 },
+      score: 0,
+      mode: "wrap",
+      alive: true,
+      tick: 0,
+    };
+    // Step up → head {5,4}. Turn right then down → head {6,5} which is body. Collide.
+    let s2 = step(s);
+    s2 = changeDirection(s2, "right");
+    s2 = step(s2);
+    s2 = changeDirection(s2, "down");
+    s2 = step(s2);
+    expect(s2.alive).toBe(false);
   });
 });
