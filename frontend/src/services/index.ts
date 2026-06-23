@@ -1,9 +1,10 @@
-import { MockSnakeService } from "./mockApi";
+import { ApiSnakeService } from "./api";
 import type { SnakeService } from "./types";
 
-// Single centralized service layer. Swap this constant to point at a real
-// backend implementation when one exists — the rest of the app is unchanged.
-export const api: SnakeService = new MockSnakeService();
+// Single centralized service layer. The app talks to the real FastAPI backend
+// through this `api` instance. To run the frontend with no backend, swap this
+// for `new MockSnakeService()` from "./mockApi".
+export const api: SnakeService = new ApiSnakeService();
 
 export type { SnakeService } from "./types";
 export * from "./types";
