@@ -1,0 +1,12 @@
+# Python virtual environment (managed by uv)
+.venv/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Local environment / database (added in later parts)
+.env
+*.db
