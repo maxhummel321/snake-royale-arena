@@ -1,0 +1,10 @@
+# Single public entrypoint for the container.
+# /api/* goes to the Python backend; everything else goes to the Node frontend.
+:80 {
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+	handle {
+		reverse_proxy 127.0.0.1:3000
+	}
+}

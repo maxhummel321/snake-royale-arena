@@ -1,0 +1,13 @@
+# Keep the build context small and avoid copying machine-specific artifacts.
+**/node_modules
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/dist
+**/.output
+**/*.db
+.git
+.gitignore
+**/.env
+**/.env.*
+!frontend/.env.production
