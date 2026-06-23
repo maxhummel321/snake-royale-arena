@@ -1,4 +1,12 @@
-.PHONY: install dev backend frontend backend-tests frontend-tests test test-integration
+.PHONY: install dev backend frontend backend-tests frontend-tests test test-integration up down
+
+# Run the whole stack (app + Postgres) with Docker Compose.
+up:
+	docker compose up --build
+
+# Tear the stack down.
+down:
+	docker compose down
 
 # Install dependencies for both sides.
 install:
