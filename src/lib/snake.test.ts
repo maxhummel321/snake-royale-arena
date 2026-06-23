@@ -64,15 +64,16 @@ describe("snake game logic", () => {
   });
 
   it("dies when running into itself", () => {
-    // Construct a long-enough snake by hand and U-turn into its own body.
+    // Head facing up will step onto a non-tail body segment.
     const s: GameState = {
       snake: [
-        { x: 5, y: 5 },
+        { x: 5, y: 5 }, // head
         { x: 4, y: 5 },
-        { x: 4, y: 6 },
-        { x: 5, y: 6 },
-        { x: 6, y: 6 },
+        { x: 4, y: 4 },
+        { x: 5, y: 4 }, // <- head will step here
+        { x: 6, y: 4 },
         { x: 6, y: 5 },
+        { x: 6, y: 6 }, // tail (will be popped)
       ],
       direction: "up",
       food: { x: 0, y: 0 },
@@ -81,12 +82,7 @@ describe("snake game logic", () => {
       alive: true,
       tick: 0,
     };
-    // Step up → head {5,4}. Turn right then down → head {6,5} which is body. Collide.
-    let s2 = step(s);
-    s2 = changeDirection(s2, "right");
-    s2 = step(s2);
-    s2 = changeDirection(s2, "down");
-    s2 = step(s2);
-    expect(s2.alive).toBe(false);
+    const next = step(s);
+    expect(next.alive).toBe(false);
   });
 });
