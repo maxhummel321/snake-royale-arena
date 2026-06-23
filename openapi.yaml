@@ -1,0 +1,446 @@
+openapi: 3.0.3
+info:
+  title: Snake Royale Arena API
+  version: 1.0.0
+  description: >
+    Backend contract expected by the Snake Royale Arena React frontend.
+
+    Derived from the frontend service layer in
+    `frontend/src/services/` (the `SnakeService` interface in `types.ts`
+    and the reference `MockSnakeService` implementation in `mockApi.ts`).
+
+    Notes:
+      * The frontend's real client talks to the backend under the `/api`
+        prefix. The backend (FastAPI) mounts all routers under `/api` and
+        serves interactive docs at `/api/docs`.
+      * The service layer exposes real-time subscriptions
+        (`watchGame`, `watchActiveGames`). Over HTTP these are served by the
+        polling endpoints `GET /api/games/{gameId}` and `GET /api/games/active`.
+      * Timestamps (`createdAt`, `updatedAt`) are epoch milliseconds, matching
+        `Date.now()` in the frontend.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development backend
+
+tags:
+  - name: auth
+    description: Signup, login, logout, current user
+  - name: leaderboard
+    description: Submit and read top scores per mode
+  - name: games
+    description: Active games for spectating
+
+paths:
+  /api/auth/signup:
+    post:
+      tags: [auth]
+      summary: Create an account and return an auth token
+      operationId: signup
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialsRequest'
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResult'
+        '409':
+          description: Username already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Validation error (username/password too short)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Log in with username and password and return an auth token
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialsRequest'
+      responses:
+        '200':
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResult'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: Log out the current user
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Logged out (no content)
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/auth/me:
+    get:
+      tags: [auth]
+      summary: Return the currently authenticated user
+      operationId: currentUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: The current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/leaderboard:
+    get:
+      tags: [leaderboard]
+      summary: Top scores for a mode, sorted by score descending
+      operationId: getLeaderboard
+      security: []
+      parameters:
+        - name: mode
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/Mode'
+          description: Game mode to filter by
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 10
+          description: Maximum number of entries to return
+      responses:
+        '200':
+          description: Leaderboard entries, highest score first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScoreEntry'
+        '422':
+          description: Missing or invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags: [leaderboard]
+      summary: Submit a score for the authenticated user
+      operationId: submitScore
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitScoreRequest'
+      responses:
+        '201':
+          description: Score recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreEntry'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/games/active:
+    get:
+      tags: [games]
+      summary: List active games available to spectate
+      description: >
+        Returns games updated recently (the reference implementation prunes
+        games idle for more than 30 seconds). The frontend polls this endpoint
+        to back the `watchActiveGames` subscription.
+      operationId: listActiveGames
+      security: []
+      responses:
+        '200':
+          description: Active games
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ActiveGame'
+
+  /api/games:
+    post:
+      tags: [games]
+      summary: Publish or update the authenticated user's active game
+      description: >
+        Upserts the caller's active game. There is one active game per user;
+        repeated calls update the existing game (same id) with the latest
+        score and state.
+      operationId: publishGame
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PublishGameRequest'
+      responses:
+        '201':
+          description: Active game published or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveGame'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/games/{gameId}:
+    get:
+      tags: [games]
+      summary: Get a single active game by id
+      description: >
+        Backs the `watchGame` subscription; the frontend polls this endpoint
+        for the spectated game.
+      operationId: getGame
+      security: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The active game
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveGame'
+        '404':
+          description: Game not found or no longer active
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [games]
+      summary: End (remove) an active game
+      operationId: endGame
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: gameId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Game ended (no content)
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Game not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Bearer token returned by /api/auth/signup and /api/auth/login
+
+  schemas:
+    Mode:
+      type: string
+      enum: [walls, wrap]
+      description: >
+        Game mode. `walls` = you die hitting a wall; `wrap` = you wrap around
+        the edges (pass-through).
+
+    Direction:
+      type: string
+      enum: [up, down, left, right]
+
+    Cell:
+      type: object
+      required: [x, y]
+      properties:
+        x:
+          type: integer
+        y:
+          type: integer
+
+    GameState:
+      type: object
+      required: [snake, direction, food, score, mode, alive, tick]
+      properties:
+        snake:
+          type: array
+          description: Snake body cells, head at index 0
+          items:
+            $ref: '#/components/schemas/Cell'
+        direction:
+          $ref: '#/components/schemas/Direction'
+        food:
+          $ref: '#/components/schemas/Cell'
+        score:
+          type: integer
+        mode:
+          $ref: '#/components/schemas/Mode'
+        alive:
+          type: boolean
+        tick:
+          type: integer
+
+    User:
+      type: object
+      required: [id, username]
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+
+    AuthResult:
+      type: object
+      required: [user, token]
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        token:
+          type: string
+
+    ScoreEntry:
+      type: object
+      required: [id, userId, username, mode, score, createdAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        username:
+          type: string
+        mode:
+          $ref: '#/components/schemas/Mode'
+        score:
+          type: integer
+        createdAt:
+          type: integer
+          format: int64
+          description: Epoch milliseconds
+
+    ActiveGame:
+      type: object
+      required: [id, userId, username, mode, score, state, updatedAt]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        username:
+          type: string
+        mode:
+          $ref: '#/components/schemas/Mode'
+        score:
+          type: integer
+        state:
+          $ref: '#/components/schemas/GameState'
+        updatedAt:
+          type: integer
+          format: int64
+          description: Epoch milliseconds
+
+    CredentialsRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 2
+        password:
+          type: string
+          minLength: 4
+
+    SubmitScoreRequest:
+      type: object
+      required: [mode, score]
+      properties:
+        mode:
+          $ref: '#/components/schemas/Mode'
+        score:
+          type: integer
+          minimum: 0
+
+    PublishGameRequest:
+      type: object
+      required: [mode, score, state]
+      properties:
+        mode:
+          $ref: '#/components/schemas/Mode'
+        score:
+          type: integer
+        state:
+          $ref: '#/components/schemas/GameState'
+
+    Error:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
