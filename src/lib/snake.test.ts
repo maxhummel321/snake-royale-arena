@@ -64,16 +64,19 @@ describe("snake game logic", () => {
   });
 
   it("dies when running into itself", () => {
-    // build a U-turn that causes self-collision
+    // grow the snake to length 4 by eating one food, then U-turn into itself.
     let s = createInitialState("wrap");
-    s = withFood(s, 0, 0);
+    const head = s.snake[0];
+    s = withFood(s, head.x + 1, head.y); // food directly ahead
+    s = step(s); // eat → length 4
+    s = withFood(s, 0, 0); // move food out of the way
+    s = step(s); // continue right
     s = changeDirection(s, "up");
     s = step(s);
     s = changeDirection(s, "left");
     s = step(s);
     s = changeDirection(s, "down");
     s = step(s);
-    // head should now collide with body segment
     expect(s.alive).toBe(false);
   });
 });
