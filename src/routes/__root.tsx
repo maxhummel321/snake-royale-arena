@@ -113,13 +113,22 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+import { AuthProvider } from "@/hooks/useAuth";
+import { NavBar } from "@/components/NavBar";
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <AuthProvider>
+        <div className="min-h-screen bg-background text-foreground flex flex-col">
+          <NavBar />
+          <main className="flex-1">
+            <Outlet />
+          </main>
+        </div>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
