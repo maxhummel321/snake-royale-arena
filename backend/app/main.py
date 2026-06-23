@@ -11,11 +11,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .routers import auth, games, leaderboard
+from .database import init_db
 from .seed import seed_demo_data
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_db()
     seed_demo_data()
     yield
 

@@ -31,7 +31,7 @@ def _initial_state(mode: Mode, score: int = 0) -> GameState:
 
 
 def seed_demo_data() -> None:
-    if store._users:  # already seeded
+    if not store.is_empty():  # already seeded / has data
         return
 
     users: dict[str, StoredUser] = {}

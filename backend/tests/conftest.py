@@ -1,15 +1,25 @@
 """Shared test fixtures.
 
-Each test gets a fresh, empty in-memory store. The TestClient is created
-without the lifespan context manager, so demo seeding does not run and tests
-build exactly the data they need.
+Unit tests run against a throwaway SQLite file, created fresh and cleared before
+each test. The DATABASE_URL is set before importing the app so config.py picks
+it up (load_dotenv does not override an already-set variable).
 """
+
+import os
+import tempfile
+
+_TEST_DB = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+_TEST_DB.close()
+os.environ["DATABASE_URL"] = f"sqlite:///{_TEST_DB.name}"
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.database import init_db
 from app.main import app
 from app.store import store
+
+init_db()  # create tables once for the test database
 
 
 @pytest.fixture
@@ -19,7 +29,7 @@ def client() -> TestClient:
 
 
 def auth_headers(client: TestClient, username: str = "alice", password: str = "pass123"):
-    """Sign up a user and return (headers, body) for authenticated requests."""
+    """Sign up a user and return headers for authenticated requests."""
     r = client.post("/api/auth/signup", json={"username": username, "password": password})
     assert r.status_code == 201, r.text
     token = r.json()["token"]
